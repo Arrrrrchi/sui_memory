@@ -1,10 +1,11 @@
 import time
+from dataclasses import replace
 from pathlib import Path
 
 from .chunker import parse_transcript
 from .db import get_connection, init_db, insert_chunk
 from .embedder import Embedder
-from .filter import contains_sensitive
+from .filter import contains_tier1, redact_tier2
 
 
 def save_session(transcript_path: str | Path, session_id: str | None = None) -> int:
@@ -21,8 +22,29 @@ def save_session(transcript_path: str | Path, session_id: str | None = None) -> 
 
     sid = session_id or parsed_session_id or Path(transcript_path).stem
 
-    # Filter out sensitive chunks
-    safe_chunks = [c for c in chunks if not contains_sensitive(c.combined_text)]
+    # Tier1（シークレット + 高リスクPII）を含むチャンクは丸ごと破棄する。
+    # combined_text は長文分割時にスライス断片になり、user_text / assistant_text
+    # には全文が残るため、保存対象の 3 フィールドすべてを検査する。
+    kept = [
+        c for c in chunks
+        if not (
+            contains_tier1(c.combined_text)
+            or contains_tier1(c.user_text)
+            or contains_tier1(c.assistant_text)
+        )
+    ]
+
+    # 残ったチャンクの Tier2 PII（メアド / 電話 / 郵便 / 生年月日）を redact する。
+    # 埋め込み前に置換するので、PII は埋め込みベクトルにも DB にも残らない。
+    safe_chunks = [
+        replace(
+            c,
+            user_text=redact_tier2(c.user_text),
+            assistant_text=redact_tier2(c.assistant_text),
+            combined_text=redact_tier2(c.combined_text),
+        )
+        for c in kept
+    ]
     if not safe_chunks:
         return 0
 

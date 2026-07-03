@@ -114,7 +114,7 @@ Claude Code のセッション中に以下のツールが使えます。
 セッション終了 (Stop hook)
   → save_session.py
     → トランスクリプトをチャンク分割
-    → センシティブ情報フィルタリング
+    → PII / シークレットフィルタ（Tier1=保存拒否 / Tier2=redact）
     → 埋め込みベクトル生成（ruri-v3-310m）
     → SQLite (chunks テーブル + chunks_vec + chunks_fts) に保存
 
@@ -136,7 +136,7 @@ sui-memory/
 │   ├── db.py           # SQLite 操作
 │   ├── embedder.py     # 埋め込みモデル（シングルトン）
 │   ├── chunker.py      # トランスクリプトのチャンク分割
-│   ├── filter.py       # センシティブ情報フィルター
+│   ├── filter.py       # PII/シークレットフィルタ（Tier1保存拒否 / Tier2 redact）
 │   └── config.py       # 設定定数
 ├── scripts/
 │   ├── save_session.py # Stop hook エントリポイント
